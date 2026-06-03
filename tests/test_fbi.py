@@ -70,3 +70,49 @@ def test_compute_total_pages_respects_cap():
 
 def test_compute_total_pages_cap_above_total_is_ignored():
     assert FBI.compute_total_pages(40, 20, max_pages=10) == 2
+
+
+def _cfg(**kw):
+    base = dict(output="FBI.html", page_size=2, max_pages=None, delay=0, verbose=False)
+    base.update(kw)
+    return argparse.Namespace(**base)
+
+
+def test_iter_all_items_spans_pages(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    pages = {
+        1: {"total": 3, "items": [{"title": "a"}, {"title": "b"}]},
+        2: {"total": 3, "items": [{"title": "c"}]},
+    }
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: pages.get(page))
+    items = list(FBI.iter_all_items(None, _cfg(page_size=2)))
+    assert [i["title"] for i in items] == ["a", "b", "c"]
+
+
+def test_iter_all_items_stops_when_first_page_fails(monkeypatch):
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: None)
+    items = list(FBI.iter_all_items(None, _cfg()))
+    assert items == []
+
+
+def test_iter_all_items_skips_failed_middle_page(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    pages = {
+        1: {"total": 6, "items": [{"title": "a"}, {"title": "b"}]},
+        2: None,  # failed page -> skipped
+        3: {"total": 6, "items": [{"title": "e"}, {"title": "f"}]},
+    }
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: pages.get(page))
+    items = list(FBI.iter_all_items(None, _cfg(page_size=2)))
+    assert [i["title"] for i in items] == ["a", "b", "e", "f"]
+
+
+def test_iter_all_items_respects_max_pages(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    pages = {
+        1: {"total": 100, "items": [{"title": "a"}]},
+        2: {"total": 100, "items": [{"title": "b"}]},
+    }
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: pages.get(page))
+    items = list(FBI.iter_all_items(None, _cfg(page_size=1, max_pages=2)))
+    assert [i["title"] for i in items] == ["a", "b"]

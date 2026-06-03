@@ -46,3 +46,29 @@ def compute_total_pages(total, page_size, max_pages=None):
     if max_pages is not None:
         pages = min(pages, max_pages)
     return pages
+
+
+def iter_all_items(session, cfg):
+    """Yield every item across all pages, deriving page count from the API total."""
+    first = fetch_page(session, 1, cfg.page_size)
+    if first is None:
+        logger.error("Could not fetch first page; nothing to do")
+        return
+    for item in first.get("items", []):
+        yield item
+
+    total = first.get("total", 0)
+    total_pages = compute_total_pages(total, cfg.page_size, cfg.max_pages)
+    logger.info("Total records reported: %s across %d page(s)", total, total_pages)
+
+    for page in range(2, total_pages + 1):
+        data = fetch_page(session, page, cfg.page_size)
+        if data is None:
+            continue
+        items = data.get("items", [])
+        if not items:
+            logger.info("Page %d returned no items; stopping early", page)
+            break
+        for item in items:
+            yield item
+        time.sleep(cfg.delay)
