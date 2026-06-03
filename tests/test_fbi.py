@@ -208,3 +208,9 @@ def test_render_record_strips_empty_paragraphs_between_content():
     assert "Real" in out
     assert "More" in out
     assert "<p>  </p>" not in out
+
+
+def test_write_output_roundtrip_utf8(tmp_path):
+    p = tmp_path / "out.html"
+    FBI.write_output("<p>José Peña — café</p>", str(p))
+    assert p.read_text(encoding="utf-8") == "<p>José Peña — café</p>"

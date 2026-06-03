@@ -106,3 +106,9 @@ def render_record(item):
     if not body:
         return ""
     return "<article>" + "".join(body) + "</article>"
+
+
+def write_output(document, path):
+    """Write the HTML document to `path` as UTF-8, closing the file even on error."""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(document)
