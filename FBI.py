@@ -137,3 +137,40 @@ def build_document(articles):
         + body
         + "\n</body>\n</html>\n"
     )
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Fetch the FBI Most Wanted list and write it to an HTML file."
+    )
+    parser.add_argument("--output", default=DEFAULT_OUTPUT, help="Output HTML path.")
+    parser.add_argument("--page-size", type=int, default=DEFAULT_PAGE_SIZE, help="Items per page.")
+    parser.add_argument("--max-pages", type=int, default=None, help="Optional cap on pages fetched.")
+    parser.add_argument("--delay", type=float, default=DEFAULT_DELAY, help="Seconds between pages.")
+    parser.add_argument("--verbose", action="store_true", help="Enable DEBUG logging.")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    cfg = parse_args(argv)
+    logging.basicConfig(
+        level=logging.DEBUG if cfg.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+    session = requests.Session()
+    session.headers.update({"User-Agent": USER_AGENT})
+    articles = [render_record(item) for item in iter_all_items(session, cfg)]
+    rendered = [a for a in articles if a]
+    logger.info("Rendered %d record(s)", len(rendered))
+    document = build_document(rendered)
+    try:
+        write_output(document, cfg.output)
+    except OSError as exc:
+        logger.error("Failed to write %s: %s", cfg.output, exc)
+        return 1
+    logger.info("Wrote %s", cfg.output)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

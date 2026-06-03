@@ -229,3 +229,41 @@ def test_build_document_filters_empty_articles():
     doc = FBI.build_document(["", "<article>y</article>", ""])
     assert "<article>y</article>" in doc
     assert "<article></article>" not in doc
+
+
+def test_parse_args_defaults():
+    cfg = FBI.parse_args([])
+    assert cfg.output == "FBI.html"
+    assert cfg.page_size == 20
+    assert cfg.max_pages is None
+    assert cfg.verbose is False
+
+
+def test_parse_args_overrides():
+    cfg = FBI.parse_args(["--output", "o.html", "--page-size", "50", "--max-pages", "3", "--verbose"])
+    assert cfg.output == "o.html"
+    assert cfg.page_size == 50
+    assert cfg.max_pages == 3
+    assert cfg.verbose is True
+
+
+def test_main_writes_document(monkeypatch, tmp_path):
+    out = tmp_path / "FBI.html"
+    monkeypatch.setattr(
+        FBI, "iter_all_items",
+        lambda session, cfg: iter([{"title": "Target", "path": "https://p"}]),
+    )
+    rc = FBI.main(["--output", str(out)])
+    assert rc == 0
+    content = out.read_text(encoding="utf-8")
+    assert content.startswith("<!DOCTYPE html>")
+    assert "Target" in content
+
+
+def test_main_returns_nonzero_on_write_error(monkeypatch):
+    monkeypatch.setattr(FBI, "iter_all_items", lambda session, cfg: iter([{"title": "T"}]))
+    def boom(document, path):
+        raise OSError("disk full")
+    monkeypatch.setattr(FBI, "write_output", boom)
+    rc = FBI.main(["--output", "/nonexistent/dir/out.html"])
+    assert rc == 1
