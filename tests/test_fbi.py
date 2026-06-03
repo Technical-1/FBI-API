@@ -214,3 +214,18 @@ def test_write_output_roundtrip_utf8(tmp_path):
     p = tmp_path / "out.html"
     FBI.write_output("<p>José Peña — café</p>", str(p))
     assert p.read_text(encoding="utf-8") == "<p>José Peña — café</p>"
+
+
+def test_build_document_structure():
+    doc = FBI.build_document(["<article>x</article>"])
+    assert doc.startswith("<!DOCTYPE html>")
+    assert 'charset="utf-8"' in doc
+    assert "<title>FBI Most Wanted</title>" in doc
+    assert "<article>x</article>" in doc
+    assert doc.rstrip().endswith("</html>")
+
+
+def test_build_document_filters_empty_articles():
+    doc = FBI.build_document(["", "<article>y</article>", ""])
+    assert "<article>y</article>" in doc
+    assert "<article></article>" not in doc

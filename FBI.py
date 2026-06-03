@@ -112,3 +112,28 @@ def write_output(document, path):
     """Write the HTML document to `path` as UTF-8, closing the file even on error."""
     with open(path, "w", encoding="utf-8") as f:
         f.write(document)
+
+
+def build_document(articles):
+    """Wrap rendered <article> strings in a complete, valid HTML5 document."""
+    body = "\n".join(a for a in articles if a)
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        "<title>FBI Most Wanted</title>\n"
+        "<style>\n"
+        "body { font-family: system-ui, sans-serif; max-width: 800px;"
+        " margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }\n"
+        "article { border-bottom: 1px solid #ccc; padding: 1rem 0; }\n"
+        "h1 { font-size: 1.6rem; }\n"
+        "h2 { font-size: 1.2rem; margin: 0 0 .5rem; }\n"
+        "</style>\n"
+        "</head>\n"
+        "<body>\n"
+        "<h1>FBI Most Wanted</h1>\n"
+        + body
+        + "\n</body>\n</html>\n"
+    )
