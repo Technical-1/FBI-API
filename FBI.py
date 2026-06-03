@@ -30,6 +30,8 @@ def fetch_page(session, page, page_size, timeout=DEFAULT_TIMEOUT, retries=DEFAUL
             )
             resp.raise_for_status()
             return resp.json()
+            # ValueError also covers json.JSONDecodeError; a malformed body is treated
+            # as a transient failure and retried like any other error.
         except (requests.exceptions.RequestException, ValueError) as exc:
             logger.warning("Page %d attempt %d/%d failed: %s", page, attempt + 1, retries + 1, exc)
             if attempt < retries:

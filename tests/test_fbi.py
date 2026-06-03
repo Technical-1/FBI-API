@@ -30,10 +30,10 @@ def test_fetch_page_retries_then_succeeds(monkeypatch):
     monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
     session = MagicMock()
     err = requests.exceptions.ConnectionError("boom")
-    session.get.side_effect = [err, err, make_response({"items": []})]
+    session.get.side_effect = [err, err, err, make_response({"items": []})]
     result = FBI.fetch_page(session, 1, 20, retries=3)
     assert result == {"items": []}
-    assert session.get.call_count == 3
+    assert session.get.call_count == 4  # 3 failed attempts + success on the 4th
 
 
 def test_fetch_page_returns_none_after_retries(monkeypatch):
