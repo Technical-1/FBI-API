@@ -116,3 +116,26 @@ def test_iter_all_items_respects_max_pages(monkeypatch):
     monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: pages.get(page))
     items = list(FBI.iter_all_items(None, _cfg(page_size=1, max_pages=2)))
     assert [i["title"] for i in items] == ["a", "b"]
+
+
+def test_compute_total_pages_rejects_nonpositive_page_size():
+    with pytest.raises(ValueError):
+        FBI.compute_total_pages(100, 0)
+
+
+def test_iter_all_items_handles_total_zero(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: {"total": 0, "items": []})
+    items = list(FBI.iter_all_items(None, _cfg()))
+    assert items == []
+
+
+def test_iter_all_items_handles_null_total(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(
+        FBI,
+        "fetch_page",
+        lambda s, page, ps, **k: {"total": None, "items": [{"title": "a"}]} if page == 1 else None,
+    )
+    items = list(FBI.iter_all_items(None, _cfg()))
+    assert [i["title"] for i in items] == ["a"]

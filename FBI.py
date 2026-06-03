@@ -42,6 +42,8 @@ def fetch_page(session, page, page_size, timeout=DEFAULT_TIMEOUT, retries=DEFAUL
 
 def compute_total_pages(total, page_size, max_pages=None):
     """Number of pages needed for `total` items at `page_size`, optionally capped."""
+    if page_size <= 0:
+        raise ValueError("page_size must be positive, got {}".format(page_size))
     pages = math.ceil(total / page_size) if total > 0 else 0
     if max_pages is not None:
         pages = min(pages, max_pages)
@@ -54,14 +56,17 @@ def iter_all_items(session, cfg):
     if first is None:
         logger.error("Could not fetch first page; nothing to do")
         return
-    for item in first.get("items", []):
-        yield item
 
-    total = first.get("total", 0)
+    # `or 0` guards against both a missing key and an explicit null total.
+    total = first.get("total") or 0
     total_pages = compute_total_pages(total, cfg.page_size, cfg.max_pages)
     logger.info("Total records reported: %s across %d page(s)", total, total_pages)
 
+    for item in first.get("items", []):
+        yield item
+
     for page in range(2, total_pages + 1):
+        time.sleep(cfg.delay)  # throttle before each subsequent fetch, success or not
         data = fetch_page(session, page, cfg.page_size)
         if data is None:
             continue
@@ -71,4 +76,3 @@ def iter_all_items(session, cfg):
             break
         for item in items:
             yield item
-        time.sleep(cfg.delay)
