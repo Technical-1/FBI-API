@@ -95,7 +95,7 @@ def render_record(item):
 
     subjects = item.get("subjects")
     if subjects:
-        names = ", ".join(str(s) for s in subjects if s)
+        names = ", ".join(html.escape(str(s)) for s in subjects if s)
         if names:
             body.append("<p>Subjects: {}</p>".format(names))
 

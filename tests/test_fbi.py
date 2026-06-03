@@ -148,30 +148,30 @@ def test_render_record_full():
         "subjects": ["Murder"],
         "caution": "<p>Armed and dangerous</p>",
     }
-    html = FBI.render_record(item)
-    assert html.startswith("<article>")
-    assert html.endswith("</article>")
-    assert "John Doe" in html
-    assert "https://www.fbi.gov/wanted/x" in html
-    assert "Murder" in html
-    assert "Armed and dangerous" in html
-    assert "<h2>John Doe</h2>" in html
-    assert 'href="https://www.fbi.gov/wanted/x"' in html
+    out = FBI.render_record(item)
+    assert out.startswith("<article>")
+    assert out.endswith("</article>")
+    assert "John Doe" in out
+    assert "https://www.fbi.gov/wanted/x" in out
+    assert "Murder" in out
+    assert "Armed and dangerous" in out
+    assert "<h2>John Doe</h2>" in out
+    assert 'href="https://www.fbi.gov/wanted/x"' in out
 
 
 def test_render_record_missing_caution_has_no_none():
     item = {"title": "Jane", "path": "https://y", "subjects": ["Fraud"]}
-    html = FBI.render_record(item)
-    assert "Jane" in html
-    assert "None" not in html
+    out = FBI.render_record(item)
+    assert "Jane" in out
+    assert "None" not in out
 
 
 def test_render_record_missing_subjects_omits_section():
     item = {"title": "Sam", "path": "https://z"}
-    html = FBI.render_record(item)
-    assert "Sam" in html
-    assert "Subjects" not in html
-    assert "[]" not in html
+    out = FBI.render_record(item)
+    assert "Sam" in out
+    assert "Subjects" not in out
+    assert "[]" not in out
 
 
 def test_render_record_empty_returns_empty_string():
@@ -237,14 +237,16 @@ def test_parse_args_defaults():
     assert cfg.page_size == 20
     assert cfg.max_pages is None
     assert cfg.verbose is False
+    assert cfg.delay == 0.25
 
 
 def test_parse_args_overrides():
-    cfg = FBI.parse_args(["--output", "o.html", "--page-size", "50", "--max-pages", "3", "--verbose"])
+    cfg = FBI.parse_args(["--output", "o.html", "--page-size", "50", "--max-pages", "3", "--verbose", "--delay", "0.5"])
     assert cfg.output == "o.html"
     assert cfg.page_size == 50
     assert cfg.max_pages == 3
     assert cfg.verbose is True
+    assert cfg.delay == 0.5
 
 
 def test_main_writes_document(monkeypatch, tmp_path):
@@ -262,8 +264,24 @@ def test_main_writes_document(monkeypatch, tmp_path):
 
 def test_main_returns_nonzero_on_write_error(monkeypatch):
     monkeypatch.setattr(FBI, "iter_all_items", lambda session, cfg: iter([{"title": "T"}]))
+
     def boom(document, path):
         raise OSError("disk full")
+
     monkeypatch.setattr(FBI, "write_output", boom)
-    rc = FBI.main(["--output", "/nonexistent/dir/out.html"])
+    # write_output is patched to raise, so the output path is irrelevant to this test.
+    rc = FBI.main([])
     assert rc == 1
+
+
+def test_main_sets_user_agent(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_iter(session, cfg):
+        captured["ua"] = session.headers.get("User-Agent")
+        return iter([])
+
+    monkeypatch.setattr(FBI, "iter_all_items", fake_iter)
+    rc = FBI.main(["--output", str(tmp_path / "o.html")])
+    assert rc == 0
+    assert captured["ua"] == FBI.USER_AGENT
