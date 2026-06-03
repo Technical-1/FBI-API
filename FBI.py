@@ -76,3 +76,29 @@ def iter_all_items(session, cfg):
             break
         for item in items:
             yield item
+
+
+def render_record(item):
+    """Render one wanted item as an HTML <article>. Returns "" if no usable fields."""
+    body = []
+
+    title = item.get("title")
+    if title:
+        body.append("<h2>{}</h2>".format(title))
+
+    path = item.get("path")
+    if path:
+        body.append('<p><a href="{0}">{0}</a></p>'.format(path))
+
+    subjects = item.get("subjects")
+    if subjects:
+        names = ", ".join(str(s) for s in subjects)
+        body.append("<p>Subjects: {}</p>".format(names))
+
+    caution = item.get("caution")
+    if isinstance(caution, str) and caution.strip():
+        body.append(caution.replace("<p> </p>", ""))
+
+    if not body:
+        return ""
+    return "<article>" + "".join(body) + "</article>"
