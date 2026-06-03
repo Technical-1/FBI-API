@@ -155,6 +155,8 @@ def test_render_record_full():
     assert "https://www.fbi.gov/wanted/x" in html
     assert "Murder" in html
     assert "Armed and dangerous" in html
+    assert "<h2>John Doe</h2>" in html
+    assert 'href="https://www.fbi.gov/wanted/x"' in html
 
 
 def test_render_record_missing_caution_has_no_none():
@@ -181,3 +183,28 @@ def test_render_record_strips_empty_caution_paragraphs():
     html = FBI.render_record(item)
     assert "Real" in html
     assert "<p> </p>" not in html
+
+
+def test_render_record_escapes_title():
+    out = FBI.render_record({"title": "John & <b>Jane</b>"})
+    assert "&amp;" in out
+    assert "<b>Jane</b>" not in out
+
+
+def test_render_record_escapes_path_quote():
+    out = FBI.render_record({"title": "T", "path": 'https://x"onmouseover=1'})
+    assert "&quot;" in out
+    assert '"onmouseover' not in out
+
+
+def test_render_record_skips_none_subjects():
+    out = FBI.render_record({"title": "T", "subjects": ["Murder", None, "Fraud"]})
+    assert "Murder, Fraud" in out
+    assert "None" not in out
+
+
+def test_render_record_strips_empty_paragraphs_between_content():
+    out = FBI.render_record({"title": "T", "caution": "<p>Real</p><p>  </p><p>More</p>"})
+    assert "Real" in out
+    assert "More" in out
+    assert "<p>  </p>" not in out

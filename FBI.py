@@ -1,8 +1,10 @@
 """Fetch the FBI Most Wanted list and render it as an HTML page."""
 
 import argparse
+import html
 import logging
 import math
+import re
 import sys
 import time
 
@@ -84,20 +86,22 @@ def render_record(item):
 
     title = item.get("title")
     if title:
-        body.append("<h2>{}</h2>".format(title))
+        body.append("<h2>{}</h2>".format(html.escape(str(title))))
 
     path = item.get("path")
     if path:
-        body.append('<p><a href="{0}">{0}</a></p>'.format(path))
+        safe_path = html.escape(str(path), quote=True)
+        body.append('<p><a href="{0}">{0}</a></p>'.format(safe_path))
 
     subjects = item.get("subjects")
     if subjects:
-        names = ", ".join(str(s) for s in subjects)
-        body.append("<p>Subjects: {}</p>".format(names))
+        names = ", ".join(str(s) for s in subjects if s)
+        if names:
+            body.append("<p>Subjects: {}</p>".format(names))
 
     caution = item.get("caution")
     if isinstance(caution, str) and caution.strip():
-        body.append(caution.replace("<p> </p>", ""))
+        body.append(re.sub(r"<p>(?:\s|&nbsp;)*</p>", "", caution))
 
     if not body:
         return ""
