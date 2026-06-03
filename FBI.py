@@ -1,8 +1,10 @@
 """Fetch the FBI Most Wanted list and render it as an HTML page."""
 
 import argparse
+import html
 import logging
 import math
+import re
 import sys
 import time
 
@@ -76,3 +78,31 @@ def iter_all_items(session, cfg):
             break
         for item in items:
             yield item
+
+
+def render_record(item):
+    """Render one wanted item as an HTML <article>. Returns "" if no usable fields."""
+    body = []
+
+    title = item.get("title")
+    if title:
+        body.append("<h2>{}</h2>".format(html.escape(str(title))))
+
+    path = item.get("path")
+    if path:
+        safe_path = html.escape(str(path), quote=True)
+        body.append('<p><a href="{0}">{0}</a></p>'.format(safe_path))
+
+    subjects = item.get("subjects")
+    if subjects:
+        names = ", ".join(str(s) for s in subjects if s)
+        if names:
+            body.append("<p>Subjects: {}</p>".format(names))
+
+    caution = item.get("caution")
+    if isinstance(caution, str) and caution.strip():
+        body.append(re.sub(r"<p>(?:\s|&nbsp;)*</p>", "", caution))
+
+    if not body:
+        return ""
+    return "<article>" + "".join(body) + "</article>"
