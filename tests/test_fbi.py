@@ -1,5 +1,7 @@
+import argparse
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 import FBI
@@ -52,3 +54,19 @@ def test_fetch_page_skips_on_bad_json(monkeypatch):
     result = FBI.fetch_page(session, 1, 20, retries=1)
     assert result is None
     assert session.get.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "total,size,expected",
+    [(999, 20, 50), (1000, 20, 50), (1001, 20, 51), (0, 20, 0), (1, 20, 1)],
+)
+def test_compute_total_pages(total, size, expected):
+    assert FBI.compute_total_pages(total, size) == expected
+
+
+def test_compute_total_pages_respects_cap():
+    assert FBI.compute_total_pages(1000, 20, max_pages=5) == 5
+
+
+def test_compute_total_pages_cap_above_total_is_ignored():
+    assert FBI.compute_total_pages(40, 20, max_pages=10) == 2

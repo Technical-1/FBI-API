@@ -38,3 +38,11 @@ def fetch_page(session, page, page_size, timeout=DEFAULT_TIMEOUT, retries=DEFAUL
                 time.sleep(2 ** attempt)
     logger.error("Page %d failed after %d attempts; skipping", page, retries + 1)
     return None
+
+
+def compute_total_pages(total, page_size, max_pages=None):
+    """Number of pages needed for `total` items at `page_size`, optionally capped."""
+    pages = math.ceil(total / page_size) if total > 0 else 0
+    if max_pages is not None:
+        pages = min(pages, max_pages)
+    return pages
