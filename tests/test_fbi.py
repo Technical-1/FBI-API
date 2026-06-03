@@ -1,5 +1,7 @@
+import argparse
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 import FBI
@@ -52,3 +54,88 @@ def test_fetch_page_skips_on_bad_json(monkeypatch):
     result = FBI.fetch_page(session, 1, 20, retries=1)
     assert result is None
     assert session.get.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "total,size,expected",
+    [(999, 20, 50), (1000, 20, 50), (1001, 20, 51), (0, 20, 0), (1, 20, 1)],
+)
+def test_compute_total_pages(total, size, expected):
+    assert FBI.compute_total_pages(total, size) == expected
+
+
+def test_compute_total_pages_respects_cap():
+    assert FBI.compute_total_pages(1000, 20, max_pages=5) == 5
+
+
+def test_compute_total_pages_cap_above_total_is_ignored():
+    assert FBI.compute_total_pages(40, 20, max_pages=10) == 2
+
+
+def _cfg(**kw):
+    base = dict(output="FBI.html", page_size=2, max_pages=None, delay=0, verbose=False)
+    base.update(kw)
+    return argparse.Namespace(**base)
+
+
+def test_iter_all_items_spans_pages(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    pages = {
+        1: {"total": 3, "items": [{"title": "a"}, {"title": "b"}]},
+        2: {"total": 3, "items": [{"title": "c"}]},
+    }
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: pages.get(page))
+    items = list(FBI.iter_all_items(None, _cfg(page_size=2)))
+    assert [i["title"] for i in items] == ["a", "b", "c"]
+
+
+def test_iter_all_items_stops_when_first_page_fails(monkeypatch):
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: None)
+    items = list(FBI.iter_all_items(None, _cfg()))
+    assert items == []
+
+
+def test_iter_all_items_skips_failed_middle_page(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    pages = {
+        1: {"total": 6, "items": [{"title": "a"}, {"title": "b"}]},
+        2: None,  # failed page -> skipped
+        3: {"total": 6, "items": [{"title": "e"}, {"title": "f"}]},
+    }
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: pages.get(page))
+    items = list(FBI.iter_all_items(None, _cfg(page_size=2)))
+    assert [i["title"] for i in items] == ["a", "b", "e", "f"]
+
+
+def test_iter_all_items_respects_max_pages(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    pages = {
+        1: {"total": 100, "items": [{"title": "a"}]},
+        2: {"total": 100, "items": [{"title": "b"}]},
+    }
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: pages.get(page))
+    items = list(FBI.iter_all_items(None, _cfg(page_size=1, max_pages=2)))
+    assert [i["title"] for i in items] == ["a", "b"]
+
+
+def test_compute_total_pages_rejects_nonpositive_page_size():
+    with pytest.raises(ValueError):
+        FBI.compute_total_pages(100, 0)
+
+
+def test_iter_all_items_handles_total_zero(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(FBI, "fetch_page", lambda s, page, ps, **k: {"total": 0, "items": []})
+    items = list(FBI.iter_all_items(None, _cfg()))
+    assert items == []
+
+
+def test_iter_all_items_handles_null_total(monkeypatch):
+    monkeypatch.setattr(FBI.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(
+        FBI,
+        "fetch_page",
+        lambda s, page, ps, **k: {"total": None, "items": [{"title": "a"}]} if page == 1 else None,
+    )
+    items = list(FBI.iter_all_items(None, _cfg()))
+    assert [i["title"] for i in items] == ["a"]
